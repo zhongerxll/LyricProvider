@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package io.github.proify.lyricon.amprovider
+package io.github.proify.lyricon.amprovider.model
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlinx.serialization.Serializable
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-
-}
+@Serializable
+data class LyricLine(
+    override var agent: String? = null,
+    override var begin: Int = 0,
+    override var duration: Int = 0,
+    override var end: Int = 0,
+    var text: String? = null,
+    var words: MutableList<LyricWord> = mutableListOf(),
+    var backgroundWords: MutableList<LyricWord> = mutableListOf(),
+    var backgroundText: String? = null,
+) : LyricTiming

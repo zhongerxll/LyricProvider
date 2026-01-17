@@ -14,20 +14,16 @@
  * limitations under the License.
  */
 
-package io.github.proify.lyricon.amprovider
+@file:Suppress("unused")
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+package io.github.proify.lyricon.amprovider.parser
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
+object StringVectorParser : Parser() {
+
+    fun parserStringVectorNative(any: Any): MutableList<String> {
+        val size = callMethod(any, "size") as Long
+        return (0 until size.toInt()).map { i ->
+            callMethod(any, "get", i) as String
+        }.toMutableList()
     }
-
 }

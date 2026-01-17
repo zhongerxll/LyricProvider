@@ -14,20 +14,11 @@
  * limitations under the License.
  */
 
-package io.github.proify.lyricon.amprovider
+package io.github.proify.lyricon.amprovider.model
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
-
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-
+interface LyricTiming {
+    var agent: String?
+    var begin: Int
+    var duration: Int
+    var end: Int
 }

@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-package io.github.proify.lyricon.amprovider
+package io.github.proify.lyricon.provider.common.extensions
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlinx.serialization.json.Json
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
-    }
-
+val json = Json {
+    ignoreUnknownKeys = true
 }

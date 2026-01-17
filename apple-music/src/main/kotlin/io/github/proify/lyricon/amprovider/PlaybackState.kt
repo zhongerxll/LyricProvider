@@ -16,18 +16,17 @@
 
 package io.github.proify.lyricon.amprovider
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+enum class PlaybackState(private val value: Int) {
+    UNKNOWN(-1),
+    STOPPED(0),
+    PLAYING(1),
+    PAUSED(2);
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
-    @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
+    companion object {
+        private val valueMap = entries.associateBy { it.value }
+
+        fun of(n: Int): PlaybackState {
+            return valueMap[n] ?: UNKNOWN
+        }
     }
-
 }

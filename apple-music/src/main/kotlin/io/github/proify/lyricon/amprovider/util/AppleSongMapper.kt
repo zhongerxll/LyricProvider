@@ -1,12 +1,27 @@
-package io.github.proify.lyricon.amprovider.xposed.apple
+/*
+ * Copyright 2026 Proify
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import io.github.proify.lyricon.amprovider.xposed.apple.model.AppleSong
-import io.github.proify.lyricon.amprovider.xposed.apple.model.LyricAgent
-import io.github.proify.lyricon.lyric.model.DoubleLyricLine
+package io.github.proify.lyricon.amprovider.util
+
+import io.github.proify.lyricon.amprovider.model.AppleSong
+import io.github.proify.lyricon.amprovider.model.LyricAgent
+import io.github.proify.lyricon.amprovider.model.LyricLine
 import io.github.proify.lyricon.lyric.model.LyricWord
+import io.github.proify.lyricon.lyric.model.RichLyricLine
 import io.github.proify.lyricon.lyric.model.Song
-import io.github.proify.lyricon.amprovider.xposed.apple.model.LyricLine as AppleLyricLine
-import io.github.proify.lyricon.amprovider.xposed.apple.model.LyricWord as AppleLyricWord
 
 fun AppleSong.toSong(): Song = AppleSongMapper.map(this)
 
@@ -14,46 +29,46 @@ object AppleSongMapper {
 
     fun map(song: AppleSong): Song {
         return Song(
-            id = song.musicId,
+            id = song.adamId,
             name = song.name,
             artist = song.artist,
-            duration = song.duration,
+            duration = song.duration.toLong(),
             lyrics = convertLyrics(song.lyrics, song.agents)
         )
     }
 
     private fun convertLyrics(
-        appleLyrics: List<AppleLyricLine>,
+        appleLyrics: List<LyricLine>,
         agents: List<LyricAgent>
-    ): MutableList<DoubleLyricLine> {
+    ): MutableList<RichLyricLine> {
         val agentDirectionMap = computeAgentDirections(agents)
 
         return appleLyrics.map { appleLine ->
-            DoubleLyricLine().apply {
+            RichLyricLine().apply {
                 text = appleLine.text
                 words = appleLine.words.map { it.toLyricWord() }.toMutableList()
 
                 secondaryText = appleLine.backgroundText
                 secondaryWords = appleLine.backgroundWords.map { it.toLyricWord() }.toMutableList()
 
-                begin = appleLine.begin
-                end = appleLine.end
-                duration = appleLine.duration
+                begin = appleLine.begin.toLong()
+                end = appleLine.end.toLong()
+                duration = appleLine.duration.toLong()
 
                 val directionType = agentDirectionMap[appleLine.agent]
 
                 isAlignedRight = directionType == LyricDirection.RIGHT
-
             }
         }.toMutableList()
     }
 
-    private fun AppleLyricWord.toLyricWord(): LyricWord = LyricWord(
-        text = this.text,
-        begin = this.begin,
-        duration = this.duration,
-        end = this.end
-    )
+    private fun io.github.proify.lyricon.amprovider.model.LyricWord.toLyricWord(): LyricWord =
+        LyricWord(
+            text = this.text,
+            begin = this.begin.toLong(),
+            duration = this.duration.toLong(),
+            end = this.end.toLong()
+        )
 
     /**
      * 计算 Agent ID 与 歌词方向的映射关系。

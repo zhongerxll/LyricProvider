@@ -1,17 +1,7 @@
 /*
  * Copyright 2026 Proify, Tomakino
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Licensed under the Apache License, Version 2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  */
 
 @file:Suppress("UnnecessaryVariable")
@@ -90,11 +80,11 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
 
         onAppLifecycle {
             onCreate {
-                //DiskSongCache.initialize(this)
                 setupLyricFileObserver()
                 setupProvider()
             }
         }
+
         // 处理热更新加载器
         "com.tencent.tinker.loader.TinkerLoader".toClass(appClassLoader)
             .resolve()
@@ -107,7 +97,6 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
                     }
                 }
             }
-
     }
 
     private fun reinit(classLoader: ClassLoader) {
@@ -182,7 +171,7 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
 
     /**
      * 核心加载逻辑：加载并设置歌曲信息。
-     * * 包含 内存 -> 磁盘缓存 -> 原始文件解析 的降级策略。
+     * * 包含 内存 -> 原始文件解析 的降级策略。
      */
     private suspend fun loadAndSetSong(
         metadata: MediaMetadataCache.Metadata,
@@ -200,13 +189,6 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
 
         // 2. 异步获取完整数据
         val songToSet = withContext(Dispatchers.IO) {
-            // 尝试读取磁盘缓存
-//            if (!forceReload) {
-//                val cache = DiskSongCache.load(id)
-//                if (cache?.song != null && !cache.song!!.lyrics.isNullOrEmpty()) {
-//                    return@withContext cache.song
-//                }
-//            }
 
             // 尝试解析原始文件
             val rawFile = lyricFileObserver?.getFile(id)
@@ -216,8 +198,6 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
                     val response = LyricParser.parseResponse(jsonString)
                     val parsedSong = response.toSong()
 
-                    // 保存到缓存以便下次快速读取
-                    DiskSongCache.save(DiskSong(parsedSong, response))
 
                     // 如果解析结果有效，返回解析后的 Song
                     if (!parsedSong.lyrics.isNullOrEmpty() && !response.pureMusic) {
@@ -251,7 +231,6 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
         YLog.debug(msg = "setSong: ${song.name} (lyrics: ${song.lyrics?.size ?: 0})")
         lastSong = song
         provider?.player?.setSong(song)
-
     }
 
     private fun startSyncAction() {
@@ -272,9 +251,7 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
         progressJob = mainScope.launch {
             while (isActive && isPlaying) {
                 val pos = readPosition()
-                if (pos >= 0) {
-                    provider?.player?.setPosition(pos.toLong())
-                }
+                provider?.player?.setPosition(pos.toLong())
                 delay(POSITION_UPDATE_INTERVAL)
             }
         }
@@ -287,9 +264,9 @@ object CloudMusic : YukiBaseHooker(), LyricFileObserver.FileObserverCallback {
 
     private fun readPosition(): Int {
         return try {
-            hotHooker.getCurrentTimeMethod?.invoke(null) as? Int ?: -1
+            hotHooker.getCurrentTimeMethod?.invoke(null) as? Int ?: 0
         } catch (_: Exception) {
-            -1
+            0
         }
     }
 

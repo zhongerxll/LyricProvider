@@ -35,6 +35,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # 给 gradlew 添加执行权限
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:

@@ -1,9 +1,6 @@
 name: Android Multi-App Build & Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       build-type:
@@ -35,26 +32,21 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 给 gradlew 添加执行权限
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # 🎯 关键：配置 Gradle 缓存
       - name: Setup Gradle with Caching
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: wrapper
-          # 启用构建缓存
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
-          # 启用依赖缓存
           cache-disabled: false
 
-      # 解码 keystore 到项目根目录
       - name: Decode Keystore
+        if: ${{ github.event.inputs.build-type == 'release' || env.BUILD_TYPE == 'release' }}
         run: |
           echo "${{ secrets.SIGNING_KEY }}" | base64 -d > release.jks
 
-      # 🎯 关键：启用 Gradle 构建缓存
       - name: Build APKs with Caching
         run: |
           if [ "$BUILD_TYPE" = "release" ]; then
@@ -68,31 +60,28 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      # 上传 APK 文件
+      - name: Collect APKs to flat directory
+        run: |
+          mkdir -p collected-apks
+          
+          # 复制所有 APK 文件
+          find . -name "*.apk" -path "*/build/outputs/apk/${{ env.BUILD_TYPE }}/*" -exec cp {} collected-apks/ \;
+          
+          # 复制所有 AAB 文件
+          find . -name "*.aab" -path "*/build/outputs/bundle/${{ env.BUILD_TYPE }}/*" -exec cp {} collected-apks/ \;
+          
+          echo "Collected files:"
+          ls -la collected-apks/
+
       - name: Upload APKs to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BUILD_TYPE }}-apks
-          path: |
-            **/build/outputs/apk/${{ env.BUILD_TYPE }}/*.apk
-            **/build/outputs/bundle/${{ env.BUILD_TYPE }}/*.aab
+          path: collected-apks/
           if-no-files-found: error
 
-      # 创建 GitHub Release
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') && env.BUILD_TYPE == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            **/build/outputs/apk/release/*.apk
-            **/build/outputs/bundle/release/*.aab
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 清理临时文件
-      - name: Cleanup Keystore
+      - name: Cleanup
         if: always()
-        run: rm -f release.jks || true
+        run: |
+          rm -f release.jks || true
+          rm -rf collected-apks || true

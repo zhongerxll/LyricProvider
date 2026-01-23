@@ -59,7 +59,6 @@ object Apple : YukiBaseHooker() {
     private fun onAppCreate() {
         application = appContext ?: return
         classLoader = appClassLoader ?: return
-
         PreferencesMonitor.initialize(application)
         PreferencesMonitor.listener = object : PreferencesMonitor.Listener {
             override fun onTranslationSelectedChanged(selected: Boolean) {

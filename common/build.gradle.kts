@@ -26,7 +26,8 @@ configure<LibraryExtension> {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            //r8巨坑，lib级模块不要配置minifyEnabled true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -2,9 +2,11 @@
 <h1 align="center">LyricProvider - 歌词提供器</h1>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Platform-Android-brightgreen?style=flat-square&logo=android&logoColor=white" alt="Android">
   <img src="https://img.shields.io/github/v/release/proify/LyricProvider?style=flat-square&color=blue" alt="release">
   <img src="https://img.shields.io/github/downloads/proify/LyricProvider/total?style=flat-square&color=orange" alt="downloads">
   <img src="https://img.shields.io/github/license/proify/LyricProvider?style=flat-square" alt="license">
+  <img src="https://img.shields.io/github/last-commit/proify/lyricon?style=flat-square" alt="Last Commit">
 </p>
 
 <p align="center">

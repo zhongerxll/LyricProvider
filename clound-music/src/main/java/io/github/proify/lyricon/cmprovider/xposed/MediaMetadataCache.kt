@@ -44,7 +44,7 @@ object MediaMetadataCache {
     fun putAndGet(bizMusicMeta: Any): Metadata? {
         val javaClass = bizMusicMeta.javaClass
 
-        getIdMethod = javaClass.getMethod("getId").apply { makeAccessible() }
+        getIdMethod = javaClass.getMethod("getMatchedMusicId").apply { makeAccessible() }
         getMusicNameMethod =
             javaClass.getMethod("getMusicName").apply { makeAccessible() }
         getArtistsNameMethod =

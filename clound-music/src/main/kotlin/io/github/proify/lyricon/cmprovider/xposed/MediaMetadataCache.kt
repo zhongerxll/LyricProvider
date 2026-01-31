@@ -33,7 +33,14 @@ object MediaMetadataCache {
         val javaClass = bizMusicMeta.javaClass
 
         if (getIdMethod == null) {
-            getIdMethod = javaClass.getMethod("getId").apply { makeAccessible() }
+            getIdMethod = try {
+                //修复从本地音乐页面播放音乐无法获取正确id
+                javaClass.getMethod("getMatchedMusicId").apply { makeAccessible() }
+            } catch (_: Exception) {
+                //备用
+                javaClass.getMethod("getId").apply { makeAccessible() }
+            }
+
             getMusicNameMethod =
                 javaClass.getMethod("getMusicName").apply { makeAccessible() }
             getArtistsNameMethod =

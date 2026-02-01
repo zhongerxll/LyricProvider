@@ -11,6 +11,10 @@ on:
           - release
         default: debug
         required: true
+      modules:
+        description: '输入要编译的模块名（如clound-music，多个用逗号或空格分隔，留空或all则编译全部）'
+        type: string
+        default: 'all'
 
 jobs:
   build-and-release:
@@ -49,16 +53,19 @@ jobs:
 
       - name: Build APKs with Caching
         run: |
-          if [ "$BUILD_TYPE" = "release" ]; then
-            ./gradlew assembleRelease --build-cache
+          # 1. 处理模块前缀
+          if [ "${{ github.event.inputs.modules }}" = "all" ] || [ -z "${{ github.event.inputs.modules }}" ]; then
+            MODULE_TASK=""
           else
-            ./gradlew assembleDebug --build-cache
+            MODULE_TASK=":${{ github.event.inputs.modules }}:"
           fi
-        env:
-          RELEASE_STORE_FILE: ../release.jks
-          RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          
+          # 2. 拼接完整的任务命令
+          if [ "$BUILD_TYPE" = "release" ]; then
+            ./gradlew ${MODULE_TASK}assembleRelease --build-cache
+          else
+            ./gradlew ${MODULE_TASK}assembleDebug --build-cache
+          fi
 
       - name: Collect APKs to flat directory
         run: |

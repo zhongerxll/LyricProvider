@@ -3,9 +3,6 @@
  * Licensed under the Apache License, Version 2.0
  * http://www.apache.org/licenses/LICENSE-2.0
  */
-
-@file:Suppress("UnnecessaryVariable")
-
 package io.github.proify.lyricon.cmprovider.xposed
 
 import android.app.Application
@@ -30,7 +27,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.luckypray.dexkit.DexKitBridge
 import java.io.File
 import java.lang.reflect.Method
@@ -53,15 +49,11 @@ object CloudMusic : YukiBaseHooker() {
         private var provider: LyriconProvider? = null
         private var lastSong: Song? = null
         private val hotHooker = HotHooker()
-
-        @Volatile
         private var currentMusicId: String? = null
         private var lyricFileObserver: LyricFileObserver? = null
 
-        private val mainScope by lazy { CoroutineScope(Dispatchers.Main + SupervisorJob()) }
-
+        private val coroutineScope by lazy { CoroutineScope(Dispatchers.Default + SupervisorJob()) }
         private var progressJob: Job? = null
-        private var loadingJob: Job? = null
 
         private var isPlaying = false
 
@@ -77,7 +69,7 @@ object CloudMusic : YukiBaseHooker() {
                     provider?.player?.setDisplayTranslation(isTranslationSelected)
                 }
             })
-            reinit(appClassLoader!!)
+            rehook(appClassLoader!!)
 
             onAppLifecycle {
                 onCreate {
@@ -86,7 +78,6 @@ object CloudMusic : YukiBaseHooker() {
                 }
             }
 
-            // 处理热更新加载器
             "com.tencent.tinker.loader.TinkerLoader".toClass(appClassLoader)
                 .resolve()
                 .method { name = "tryLoad" }
@@ -94,13 +85,13 @@ object CloudMusic : YukiBaseHooker() {
                     it.hook {
                         after {
                             val app = args[0] as Application
-                            reinit(app.classLoader)
+                            rehook(app.classLoader)
                         }
                     }
                 }
         }
 
-        private fun reinit(classLoader: ClassLoader) {
+        private fun rehook(classLoader: ClassLoader) {
             preferencesMonitor?.update(classLoader)
             hotHooker.rehook(classLoader)
         }
@@ -131,105 +122,74 @@ object CloudMusic : YukiBaseHooker() {
         }
 
         /**
-         * 处理文件变更回调。
-         * * 仅当变更文件对应当前播放歌曲且当前无歌词时触发重载。
+         * 文件变更回调
          */
         override fun onFileChanged(event: Int, file: File) {
             val currentId = currentMusicId ?: return
-            val fileName = file.name
+            if (file.name != currentId) return
 
-            // 如果文件名不匹配当前ID，直接忽略
-            if (fileName != currentId) return
-
-            // 如果当前已经有有效歌词，且不是强制刷新场景，可以忽略（视需求而定）
-            // 这里采用保守策略：如果文件变动，尝试重新加载
-            mainScope.launch {
-                val metadata = MediaMetadataCache.getMetadataById(currentId) ?: return@launch
-                loadAndSetSong(metadata, forceReload = true)
-            }
+            val metadata = MediaMetadataCache.getMetadataById(currentId) ?: return
+            performSyncLoad(metadata)
         }
 
         /**
-         * 响应歌曲元数据变更。
+         * 响应歌曲元数据变更 - 同步执行
          */
         fun onSongChanged(metadata: MediaMetadataCache.Metadata) {
             val newId = metadata.id
-            if (currentMusicId == newId) return // ID 未变，忽略
-
+            if (currentMusicId == newId) return
             currentMusicId = newId
-
-            // 取消上一次正在进行的加载任务，避免竞态条件
-            loadingJob?.cancel()
-
-            // 启动新的加载任务
-            loadingJob = mainScope.launch {
-                loadAndSetSong(metadata)
-            }
+            performSyncLoad(metadata)
         }
 
         /**
-         * 核心加载逻辑：加载并设置歌曲信息。
-         * * 包含 内存 -> 原始文件解析 的降级策略。
+         * 核心同步加载逻辑
          */
-        private suspend fun loadAndSetSong(
-            metadata: MediaMetadataCache.Metadata,
-            forceReload: Boolean = false
-        ) {
+        private fun performSyncLoad(metadata: MediaMetadataCache.Metadata) {
             val id = metadata.id
 
-            // 1. 构建占位符
-            val placeholder = Song(
+            // 1. 默认构建一个基础 Song
+            var targetSong = Song(
                 id = id,
                 name = metadata.title,
                 artist = metadata.artist,
                 duration = metadata.duration
             )
 
-            // 2. 异步获取完整数据
-            val songToSet = withContext(Dispatchers.IO) {
+            // 2. 同步尝试读取歌词文件并解析
+            val rawFile = lyricFileObserver?.getFile(id)
+            if (rawFile != null && rawFile.exists()) {
+                try {
+                    val jsonString = rawFile.readText()
+                    val response = LyricParser.parseResponse(jsonString)
+                    val parsedSong = response.toSong()
 
-                // 尝试解析原始文件
-                val rawFile = lyricFileObserver?.getFile(id)
-                if (rawFile != null && rawFile.exists()) {
-                    runCatching {
-                        val jsonString = rawFile.readText()
-                        val response = LyricParser.parseResponse(jsonString)
-                        val parsedSong = response.toSong()
-
-
-                        // 如果解析结果有效，返回解析后的 Song
-                        if (!parsedSong.lyrics.isNullOrEmpty() && !response.pureMusic) {
-                            return@withContext parsedSong
-                        }
-                    }.onFailure {
-                        YLog.debug("Failed to parse lyric file for $id: ${it.message}")
+                    if (!parsedSong.lyrics.isNullOrEmpty() && !response.pureMusic) {
+                        targetSong = parsedSong
                     }
+                } catch (e: Exception) {
+                    YLog.debug("Sync parse failed for $id: ${e.message}")
                 }
-
-                // 兜底返回占位符
-                return@withContext null
             }
 
-            // 3. 更新 Provider
-            // 再次检查 ID，防止协程挂起期间歌曲已切换
-            if (currentMusicId == id) {
-                setSong(songToSet ?: placeholder)
-            }
+            // 3. 直接推送到 Provider
+            setSong(targetSong)
         }
 
         private fun setSong(song: Song) {
-            // 去重逻辑：避免重复设置相同的空歌词
-            if (song.lyrics.isNullOrEmpty() && lastSong?.lyrics.isNullOrEmpty()) {
-                if (lastSong?.id == song.id) return
-            }
-
-            // 深度比较，如果完全一致则跳过（需 Song 类实现 equals）
             if (lastSong == song) return
 
-            YLog.debug(msg = "setSong: ${song.name} (lyrics: ${song.lyrics?.size ?: 0})")
+            // 如果 ID 没变且歌词都是空的，跳过重复刷新
+            if (song.lyrics.isNullOrEmpty() && lastSong?.id == song.id && lastSong?.lyrics.isNullOrEmpty()) {
+                return
+            }
+
+            YLog.debug(msg = "setSong Sync: ${song.name} (lyrics: ${song.lyrics?.size ?: 0})")
             lastSong = song
             provider?.player?.setSong(song)
         }
+
+        // --- 进度同步部分 ---
 
         private fun startSyncAction() {
             if (isPlaying) return
@@ -246,7 +206,7 @@ object CloudMusic : YukiBaseHooker() {
 
         private fun resumeCoroutineTask() {
             if (progressJob?.isActive == true) return
-            progressJob = mainScope.launch {
+            progressJob = coroutineScope.launch {
                 while (isActive && isPlaying) {
                     val pos = readPosition()
                     provider?.player?.setPosition(pos.toLong())
@@ -270,7 +230,6 @@ object CloudMusic : YukiBaseHooker() {
 
         inner class HotHooker {
             private val unhooks = mutableListOf<YukiMemberHookCreator.MemberHookCreator.Result?>()
-
             var getCurrentTimeMethod: Method? = null
 
             fun rehook(classLoader: ClassLoader) {
@@ -283,7 +242,6 @@ object CloudMusic : YukiBaseHooker() {
 
                 val playServiceClassResolve = playServiceClass.resolve()
 
-                // Hook 元数据变更
                 unhooks += playServiceClassResolve
                     .firstMethod {
                         name = "onMetadataChanged"
@@ -292,13 +250,11 @@ object CloudMusic : YukiBaseHooker() {
                     .hook {
                         after {
                             val bizMusicMeta = args[0] ?: return@after
-                            // 确保元数据解析在调用线程执行，耗时操作在 CloudMusic 内部异步化
                             val metadata = MediaMetadataCache.put(bizMusicMeta) ?: return@after
                             onSongChanged(metadata)
                         }
                     }
 
-                // Hook 播放状态变更
                 unhooks += playServiceClassResolve
                     .firstMethod {
                         name = "onPlaybackStatusChanged"
@@ -308,8 +264,8 @@ object CloudMusic : YukiBaseHooker() {
                         after {
                             val status = args[0] as? Int ?: return@after
                             when (status) {
-                                3 -> startSyncAction() // Playing
-                                2 -> stopSyncAction()  // Paused
+                                3 -> startSyncAction()
+                                2 -> stopSyncAction()
                             }
                         }
                     }

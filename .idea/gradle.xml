@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/kugou-music" />
             <option value="$PROJECT_DIR$/qq-music" />
             <option value="$PROJECT_DIR$/qrckit" />
+            <option value="$PROJECT_DIR$/spotify-music" />
           </set>
         </option>
       </GradleProjectSettings>

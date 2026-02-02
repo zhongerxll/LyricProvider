@@ -6,7 +6,6 @@
 
 package io.github.proify.lyricon.qmprovider.xposed
 
-import io.github.proify.qrckit.LyricResponse
 import io.github.proify.qrckit.QrcDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +18,7 @@ object DownloadManager {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    fun isDownloading(id: String): Boolean = downloadingIds.contains(id)
+    private fun isDownloading(id: String): Boolean = downloadingIds.contains(id)
 
     fun download(id: String, downloadCallback: DownloadCallback) {
         if (isDownloading(id)) return
@@ -35,9 +34,4 @@ object DownloadManager {
             }
         }
     }
-}
-
-interface DownloadCallback {
-    fun onDownloadFinished(response: LyricResponse)
-    fun onDownloadFailed(id: String, e: Exception)
 }

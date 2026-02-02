@@ -13,13 +13,13 @@ plugins {
 }
 
 configure<ApplicationExtension> {
-    namespace = "io.github.proify.lyricon.kgprovider"
+    namespace = "io.github.proify.lyricon.spotifyprovider"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "io.github.proify.lyricon.kgprovider"
+        applicationId = "io.github.proify.lyricon.spotifyprovider"
         minSdk = 27
         targetSdk = 36
         versionCode = 2

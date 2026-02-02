@@ -93,7 +93,7 @@ object QQMusic : YukiBaseHooker() {
      * 处理播放服务进程逻辑：核心 Hook 与 Lyricon 交互
      */
     private class PlayerProcessHook : DownloadCallback {
-        private val hookScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+        private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         private var positionUpdateJob: Job? = null
         private var lyriconProvider: LyriconProvider? = null
 
@@ -195,7 +195,7 @@ object QQMusic : YukiBaseHooker() {
 
         private fun launchPositionTracker() {
             if (positionUpdateJob != null) return
-            positionUpdateJob = hookScope.launch {
+            positionUpdateJob = coroutineScope.launch {
                 while (isActive && isMediaPlaying) {
                     lyriconProvider?.player?.setPosition(fetchCurrentTimeFromQQMusic())
                     delay(ProviderConstants.DEFAULT_POSITION_UPDATE_INTERVAL)
@@ -227,7 +227,7 @@ object QQMusic : YukiBaseHooker() {
         private fun fetchCurrentTimeFromQQMusic(): Long {
             return try {
                 getCurrentTimeMethod?.invoke(playProcessMethodsInstance) as? Long ?: 0
-            } catch (e: Throwable) {
+            } catch (_: Throwable) {
                 0
             }
         }
